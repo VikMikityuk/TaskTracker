@@ -1,19 +1,36 @@
 package model;
 
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
 import java.util.Calendar;
 
-/**
- * Created by Snap on 12.01.2016.
- */
+@XmlRootElement
 public class TaskModel implements Cloneable, Serializable {
     String name;
     Calendar timeStart;
-    TaskBrunch taskBrunch;
+    String taskBrunch;
+    int id;
 
-    public TaskModel(String name) {
+    TaskModel() {
+    }
+
+    public TaskModel(String name, int id) {
+        this.id = id;
         this.name = name;
         timeStart = Calendar.getInstance();
+    }
+
+    /**
+     * Метод клонирования задачи, с новым(текущим) временем
+     *
+     * @return
+     * @throws CloneNotSupportedException
+     */
+    public TaskModel clone() throws CloneNotSupportedException {
+        TaskModel tm = (TaskModel) super.clone();
+        tm.timeStart = Calendar.getInstance();
+        return tm;
     }
 
 
@@ -21,30 +38,40 @@ public class TaskModel implements Cloneable, Serializable {
         return timeStart;
     }
 
+    @XmlElement
     public void setTimeStart(Calendar timeStart) {
         this.timeStart = timeStart;
     }
 
-    public TaskBrunch getTaskBrunch() {
+    public String getTaskBrunch() {
         return taskBrunch;
     }
 
+    @XmlElement(name = "TaskBrunchOfModel")
     public void setTaskBrunch(TaskBrunch taskBrunch) {
-        this.taskBrunch = taskBrunch;
-    }
-
-    public TaskModel clone() throws CloneNotSupportedException {
-        TaskModel tm = (TaskModel) super.clone();
-        tm.timeStart = Calendar.getInstance();
-        return tm;
+        this.taskBrunch = taskBrunch.getName();
     }
 
     public String getName() {
         return name;
     }
 
+    @XmlElement(name = "TaskModelName")
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    @XmlElement
+    public void setId(int id) {
+        this.id = id;
+    }
+
     @Override
-    public String toString() {//TODO
-        return name +"   " +timeStart.get(Calendar.HOUR)+":" + timeStart.get(Calendar.MINUTE)+":" + timeStart.get(Calendar.SECOND);
+    public String toString() {
+        return name + "   " + timeStart.get(Calendar.HOUR) + ":" + timeStart.get(Calendar.MINUTE) + ":" + timeStart.get(Calendar.SECOND);
     }
 }

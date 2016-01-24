@@ -1,5 +1,10 @@
 package view;
 
+import model.TaskModel;
+
+import java.util.ArrayList;
+import java.util.List;
+
 public class View {
 
 
@@ -11,7 +16,6 @@ public class View {
 
 
     public static String printValidationIDAsk() {
-        System.out.println("Have you username? (Y/N)");
         return "Have you username? (Y/N)";
     }
 
@@ -25,11 +29,11 @@ public class View {
      */
     public static String printValidationIDINPUTNAME(String s) {
         if ("y".equals(s.toLowerCase())) {
-            System.out.println("Enter you Username");
+            System.out.println("User registered");
             return "Enter you Username";
         }
         if ("n".equals(s.toLowerCase())) {
-            System.out.println("Enter username for registration");
+            System.out.println("New user");
             return "Enter username for registration";
         }
         return "error";
@@ -37,48 +41,39 @@ public class View {
 
 
     public static String printErrorIncorrectValue() {
-        System.out.println("You enter incorrect value. Please, try again.");
+        System.out.println("user input incorrect value");
         return "You enter incorrect value. Please, try again.";
     }
 
-    public static String printFirstMenu() {
-        System.out.println("1.View and choose the hierarchy of tasks.");
-        System.out.println("2. Edit the hierarchy of tasks.");
-        System.out.println("3.view.View Statistics.");
-        System.out.println("4.Logout.");
-        System.out.println("5.Exit.");
-        System.out.println("Current task:");
-        return "1.View and choose the hierarchy of tasks." +
-                "2. Edit the hierarchy of tasks." +
-                "3.view.View Statistics." +
-                "4.Logout." +
-                "5.Exit." +
-                "Current task:";
+    public static List<String> printFirstMenu(TaskModel taskModel) {
+        System.out.println("User in main menu");
+        List<String> listString=new ArrayList<>();
+        listString.add("1.View and choose the hierarchy of tasks." );
+        listString.add("2. Edit the hierarchy of tasks.");
+        listString.add("3.view.View Statistics.");
+        listString.add("4.Logout." );
+        listString.add("5.Exit.");
+        listString.add("Current task:"+ taskModel.toString());
+        return listString;
 
     }
 
     //для 1-го пункта меню
-    public static String printMenuOfItemOneOrTwo() {
-        System.out.println("100.Exit to first menu.");
-        System.out.println("Select group of tasks:");
-        //TODO -вывести группу задач
+    public static String printBrunchMenu() {
+        System.out.println("user In Brunch Menu");
         return "100.Exit to first menu." +
                 "Select group of tasks:";
     }
 
-    public static String printSubMenuOfItemOneOrTwo() {
-        System.out.println("1000.exit ");
-        System.out.println("100.Exit to first menu.");
-        System.out.println("Select tasks:");
-        //TODO вывести полное дерево задач
+    public static String printTaskModelMenu() {
+        System.out.println("user in sub brunch menu");
         return "1000.exit "+
                 "100.Exit to first menu." +
                 "Select tasks:";
     }
 
     public static String printUpdateCurrentTask(String s) {
-        System.out.println(" Now you doing " + s + "!");
-        System.out.println("100.Exit to first menu.");
+        System.out.println(" user doing " + s + "!");
         return " Now you doing " + s + "!"+
                 "100.Exit to first menu.";
     }
@@ -87,18 +82,14 @@ public class View {
 //для 2-го пункта меню
 
     public static String printUpdateNameOfTask() {
-        System.out.println(" Task rename ");
-        System.out.println("100.Exit to first menu.");
+        System.out.println("user renamed task");
         return " Task rename ";
     }
 
 
     //Для 3-го пункта меню
     public static String printSubMenuStatistic() {
-        System.out.println("Select presentation of statistics");
-        System.out.println("1.");
-        System.out.println("2.");
-        return "Select presentation of statistics";
+        return "Select presentation of statistics: 1. my all statistic; 2.statistic of branches";
     }
 
 

@@ -1,64 +1,67 @@
 package model;
 
-import java.io.*;
+import constant.Constants;
+import workWithFile.WorkWithXML;
+
+
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlElementWrapper;
+import javax.xml.bind.annotation.XmlRootElement;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
-import logic.DataLists;
-import workWithFile.WorkWithFile;
 
-/**
- * Created by Snap on 11.01.2016.
- */
-public class User implements Serializable {
+@XmlRootElement
+public class User {
+    @XmlElement(name = "UserName")
     private String name;
     private TaskModel currentTask;
-    private List<TaskModel> log;
+    private List<TaskModel> logTasks;
+    @XmlElement
     public TaskHierarchy taskHierarchy; //у каждого пользователя своя иерархия задач,у которой он может менять названия
-
+    @XmlElement
     private File file;
-    private WorkWithFile wwfile = new WorkWithFile();
+    private transient WorkWithXML wwXML = new WorkWithXML();
 
+    User() {
+    }
 
-    public User(String nm) {
+    public User(String nm) throws CloneNotSupportedException {
+
         name = nm;
-        log = new ArrayList<>();
-        DataLists.usersList.add(nm);
+        logTasks = new ArrayList<>();
+        Constants.usersList.add(nm);//userList из класса констант
         taskHierarchy = setMainTaskHierarchy();
-        file = new File("C://taskTracker//" + nm + ".out");
-        wwfile.setTaskFileJM(file);
+        currentTask = taskHierarchy.getTaskHierarchyMap().get(2).getTaskBrunchMap().get(1).clone();
+        logTasks.add(currentTask); //при создании у юзера по
+        //умолчанию текущая задача- не работа "not working"
+        file = new File("C://taskTracker//" + nm + ".xml");
         try {
-            wwfile.serJM(this);
+            wwXML.marshallerUser(this, this.name);
         } catch (IOException e) {
             e.printStackTrace();
         }
-        currentTask = taskHierarchy.getTaskHierarchyMap().get(2).getTaskBrunch().get(1); //при создании у юзера по
-        //умолчанию текущая задача- не работа "not working"
+
+
     }
-
-
-    public List<TaskModel> getLog() {
-        return log;
-    }
-
 
     private TaskHierarchy setMainTaskHierarchy() {
         TaskBrunch work = new TaskBrunch("Working");
-        work.addTaskModel(1, new TaskModel("working"));
-        work.addTaskModel(2, new TaskModel("meeting"));
-        work.addTaskModel(3, new TaskModel("planning session"));
+        work.addTaskModel(1, new TaskModel("working", Constants.WORKINGID));
+        work.addTaskModel(2, new TaskModel("meeting", Constants.MEETINGID));
+        work.addTaskModel(3, new TaskModel("planning session", Constants.PLANNINGSESSIONID));
 
         TaskBrunch notWork = new TaskBrunch("NotWorking");
-        notWork.addTaskModel(1, new TaskModel("not working"));
-        notWork.addTaskModel(2, new TaskModel("sleeping"));
-        notWork.addTaskModel(3, new TaskModel("in house"));
+        notWork.addTaskModel(1, new TaskModel("not working", Constants.NOTWORKINGID));
+        notWork.addTaskModel(2, new TaskModel("sleeping", Constants.SLEEPINGID));
+        notWork.addTaskModel(3, new TaskModel("in house", Constants.INHOUSEID));
 
 
         TaskBrunch sport = new TaskBrunch("Sport");
-        sport.addTaskModel(1, new TaskModel("swimming"));
-        sport.addTaskModel(2, new TaskModel("gymnastics"));
+        sport.addTaskModel(1, new TaskModel("swimming", Constants.SWIMMINGID));
+        sport.addTaskModel(2, new TaskModel("gymnastic", Constants.GIMNASTICID));
 
 
         TaskHierarchy taskHierarchy = new TaskHierarchy("taskH");
@@ -70,43 +73,61 @@ public class User implements Serializable {
     }
 
     /**
-     * Проверяем, если ли такой ник в списке DataLists.usersList
+     * Проверяем, если ли такой ник в списке constant.Constants.usersList
      *
      * @param str - строка, имя пользователя
      * @return если есть такой ник, то возвращаем объект этого пользователя, если нет то "null"
      */
     public static String validationUser(String str) {
-        if (DataLists.usersList.isEmpty() && DataLists.usersList.size() <= 0) return null;
+        if (Constants.usersList.isEmpty() && Constants.usersList.size() <= 0) return null;
         if (str == null && str.equals("")) return null;
 
-        for (int i = 0; i < DataLists.usersList.size(); i++) {
-            if ((DataLists.usersList.get(i)).equals(str)) {
-                return DataLists.usersList.get(i);
+        for (int i = 0; i < Constants.usersList.size(); i++) {
+            if ((Constants.usersList.get(i)).equals(str)) {
+                return Constants.usersList.get(i);
             }
         }
-
-        //listUsers.forEach(p -> {
-        //   if ((p.name).equals(str)) return true;//TODO почему тут он выдает ошибку?
-        //});
         return null;
     }
 
-
+    /**
+     * Добавление задачи в список(logTasks)
+     *
+     * @param taskModel новая задача(currentTask)
+     * @return результат добавления задачи.
+     */
     public boolean addToLog(TaskModel taskModel) {
-        if (log.add(taskModel)) {
+        if (logTasks == null) {
+            logTasks = new ArrayList<>();
+        }
+        if (logTasks.add(taskModel)) {
             currentTask = taskModel;
             return true;
         } else return false;
     }
 
 
-    public void saveToFile() {
-        try {
-            wwfile.serJM(this);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+
+
+    public String getName() {
+        return name;
     }
 
+    public List<TaskModel> getLogTasks() {
+        return logTasks;
+    }
 
+    @XmlElement
+    @XmlElementWrapper
+    public void setLogTasks(List<TaskModel> logTasks) {
+        this.logTasks = logTasks;
+    }
+
+    public TaskModel getCurrentTask() {
+        return currentTask;
+    }
+    @XmlElement
+    public void setCurrentTask(TaskModel currentTask) {
+        this.currentTask = currentTask;
+    }
 }

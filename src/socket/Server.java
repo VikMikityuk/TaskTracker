@@ -1,25 +1,27 @@
 package socket;
 
 import logic.ClientThread;
+import constant.Constants;
+import workWithFile.WorkWithXML;
 
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Scanner;
 
 
 /**
  * Класс сервера. Сидит тихо на порту, принимает сообщение, создает logic.ClientThread на каждое сообщение
  */
 public class Server {
-    private ServerSocket ss; // сам сервер-сокет
-    private Thread serverThread; // главная нить обработки сервер-сокета
+    private ServerSocket serverSocket; // сам сервер-сокет
+    private Thread serverThread = new Thread(); // главная нить обработки сервер-сокета
     private int port; // порт сервер сокета.
 
 
-    //лист, где храняться все logic.ClientThread'ы для рассылки
-   static List<ClientThread> listClient = new ArrayList<>();
+    static List<ClientThread> listConnectedClient = new ArrayList<>();
 
     /**
      * Конструктор объекта сервера
@@ -28,31 +30,39 @@ public class Server {
      * @throws IOException Если не удасться создать сервер-сокет, вылетит по эксепшену, объект Сервера не будет создан
      */
     public Server(int port) throws IOException {
-        ss = new ServerSocket(port);
+        serverSocket = new ServerSocket(port);
         this.port = port;
+        Thread listenerServer = new Thread(new Listener());
+        listenerServer.setDaemon(true);
+        listenerServer.start();
+
     }
 
     /**
      * главный цикл прослушивания/ожидания коннекта.
      */
     public void run() {
-        serverThread = Thread.currentThread(); // со старта сохраняем нить (чтобы можно ее было interrupt())
-        while (true) { //бесконечный цикл
-            Socket s = getNewConn(); // получить новое соединение или фейк-соедиение
-            if (serverThread.isInterrupted()) { // если это фейк-соединение, то наша нить была interrupted(),
-                // надо прерваться
+        WorkWithXML workWithXML = new WorkWithXML();
+        try {
+            Constants.usersList = workWithXML.unmarshallingListClient();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        serverThread = Thread.currentThread();
+        while (true) {
+            Socket socket = getNewConn();
+            if (serverThread.isInterrupted()) {
                 break;
-            } else
-
-            if (s != null) { // "только если коннект успешно создан"...
+            } else if (socket != null) {
                 try {
-                    final ClientThread processor = new ClientThread(s); // создаем поток клиента
-                    final Thread thread = new Thread(processor); // создаем отдельную асинхронную нить чтения из сокета
-                    thread.setDaemon(true); //ставим ее в демона (чтобы не ожидать ее закрытия)
-                    thread.start(); //запускаем
-                    listClient.add(processor); //добавляем в список активных сокет-процессоров
-                }
-                catch (IOException ignored) {
+                    final ClientThread clientThread = new ClientThread(socket);
+                    final Thread thread = new Thread(clientThread);
+                    thread.setDaemon(true);
+                    thread.start();
+                    listConnectedClient.add(clientThread); //добавляем в список активных сокет-процессоров
+                } catch (IOException ignored) {
                 }
             }
         }
@@ -64,32 +74,59 @@ public class Server {
      * @return Сокет нового подключения
      */
     private Socket getNewConn() {
-        Socket s = null;
+        Socket socket = null;
         try {
-            s = ss.accept();
+            socket = serverSocket.accept();
         } catch (IOException e) {
-            shutdownServer(); // если ошибка в момент приема - "гасим" сервер
+            shutdownServer();
         }
-        return s;
+        return socket;
     }
 
     /**
      * метод "глушения" сервера
      */
-    private synchronized void shutdownServer() {
+    public synchronized void shutdownServer() {
+        WorkWithXML workWithXML = new WorkWithXML();
+        try {
+            workWithXML.marshallerListClient();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         // обрабатываем список рабочих коннектов, закрываем каждый
-        listClient.forEach(ClientThread::close);
-        if (!ss.isClosed()) {
+        listConnectedClient.forEach(ClientThread::closeSocket);
+        if (!serverSocket.isClosed()) {
             try {
-                ss.close();
+                serverSocket.close();
             } catch (IOException ignored) {
             }
+            this.serverThread.interrupt();
         }
     }
 
 
-    public static List<ClientThread> getListClient() {
-        return listClient;
+    public static List<ClientThread> getListConnectedClient() {
+        return listConnectedClient;
+    }
+
+
+    /**
+     * Вложенный приватный класс асинхронного чтения с консоли сервера
+     */
+    private class Listener implements Runnable {
+        public void run() {
+            listener();
+        }
+
+        private void listener() {
+            Scanner sc = new Scanner(System.in);
+            String str;
+            str = sc.nextLine();
+            if ("exit".equals(str)) {
+                shutdownServer();
+                // listenerServer.interrupt();
+            } else listener();
+        }
     }
 
 }

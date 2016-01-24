@@ -4,30 +4,31 @@ import model.TaskModel;
 import model.User;
 import socket.Server;
 import view.View;
-import workWithFile.WorkWithFile;
+import workWithFile.WorkWithXML;
 
 import java.io.*;
 import java.net.Socket;
 
 public class ClientThread extends Thread {
-    Socket s; // наш сокет
-    BufferedReader br; // буферизировнный читатель сокета
-    BufferedWriter bw; // буферизированный писатель в сокет
+    Socket socket;
+    BufferedReader bufferedReader;
+    BufferedWriter bufferedWriter;
 
-    User user;//объкт пользователь
-    Integer a;//для реализации контроллера
+    User user;
+    Integer intInput;
+    WorkWithXML workWithXML = new WorkWithXML();
 
 
     /**
      * Сохраняем сокет, пробуем создать читателя и писателя. Если не получается - вылетаем без создания объекта
      *
      * @param socketParam сокет
-     * @throws IOException Если ошибка в создании br || bw
+     * @throws IOException Если ошибка в создании bufferedReader || bufferedWriter
      */
     public ClientThread(Socket socketParam) throws IOException {
-        s = socketParam;
-        br = new BufferedReader(new InputStreamReader(s.getInputStream(), "UTF-8"));
-        bw = new BufferedWriter(new OutputStreamWriter(s.getOutputStream(), "UTF-8"));
+        socket = socketParam;
+        bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
+        bufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), "UTF-8"));
     }
 
 
@@ -37,18 +38,18 @@ public class ClientThread extends Thread {
     public void run() {
         send(View.hello());
         //тут начинается вся *магия* логика
-        login();
+        loginMenu();
     }
 
-    public void login() {// есть ли логин? да- авторизация, нет-создание нового и записать его в список
+    public void loginMenu() {
         send(View.printValidationIDAsk());
-        String u;
+        String strInput;
         try {
-            u = br.readLine();
+            strInput = bufferedReader.readLine();
         } catch (Exception e) {
-            u = "q";
+            strInput = "q";
         }
-        switch (u) {
+        switch (strInput) {
             case "y":
                 send(View.printValidationIDINPUTNAME("y"));
                 validationLogin();
@@ -59,32 +60,37 @@ public class ClientThread extends Thread {
                 break;
             default:
                 send(View.printErrorIncorrectValue());
-                if (!s.isClosed()) login();
+                if (!socket.isClosed()) loginMenu();
         }
     }
 
     private void validationLogin() {
-        String u;
+        String strInput;
         try {
-            u = br.readLine();
+            strInput = bufferedReader.readLine();
         } catch (IOException e) {
             send("Input Error..");
-            u = null;
+            strInput = null;
         }
-        String str = User.validationUser(u); // здесь проверка логина. Стрингу присваивается имя, которое проверили
+        String str = User.validationUser(strInput); // здесь проверка логина. Стрингу присваивается имя, которое проверили
         // если такое есть, то это имя, если нет то null
         if (str != null) {// если имя есть, то
-            WorkWithFile wwfile = new WorkWithFile(); //считываем из файла все данные о юзере.
-            wwfile.setTaskFileJM(new File("C://taskTracker//" + str + ".out"));
             try {
-                user = (User) wwfile.validDeser();
+                if (workWithXML.unmarshallingUser(str) == null) {
+                    send("Error");
+                    loginMenu();
+                }
+                user = workWithXML.unmarshallingUser(str);
+                //  System.out.println(user.taskHierarchy.toStringFromSend()); //for test
+                mainMenu();
             } catch (IOException e) {
                 e.printStackTrace();
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();
             }
-            firstMenu();
         } else {
             send(View.printErrorIncorrectValue());
-            if (!s.isClosed()) login();
+            if (!socket.isClosed()) loginMenu();
         }
 
     }
@@ -92,66 +98,70 @@ public class ClientThread extends Thread {
     private void createUser() {
         String u = null;
         try {
-            u = br.readLine();
+            u = bufferedReader.readLine();
         } catch (IOException e) {
             send("Input Error..");
         }
-        if (u == null && u.equals("")) {
-            send(View.printErrorIncorrectValue());//TODO если ентер то оно не работает, исправить
-            if (!s.isClosed()) createUser();
+        if ("".equals(u)) {
+            send(View.printErrorIncorrectValue());//если пользователь ввел пустое значение, то ошибка
+            if (!socket.isClosed()) createUser();
         } else {
-            user = new User(u);
-            // DataLists.usersList.forEach(p-> System.out.println(p)); //ДЛя проверки добавления
-            firstMenu();
+            try {
+                user = new User(u);
+                mainMenu();
+            } catch (CloneNotSupportedException e) {
+                send("Error");
+                loginMenu();
+            }
+
         }
     }
 
 
-    public void firstMenu() {
-        if (!s.isClosed())
-            send(View.printFirstMenu());
+    public void mainMenu() {
+        if (!socket.isClosed())
+            View.printFirstMenu(user.getCurrentTask()).forEach(p -> send(p));
         try {
-            a = Integer.parseInt(br.readLine());
+            intInput = Integer.parseInt(bufferedReader.readLine());
         } catch (Exception e) {
-            a = 0;
+            intInput = 0;
         }
-        switch (a) {
+        switch (intInput) {
             case 1:
-                menuOfItemOneOrTwo(1);
+                brunchMenu(1);
                 break;
             case 2:
-                menuOfItemOneOrTwo(2);
+                brunchMenu(2);
                 break;
             case 3:
                 viewStatistic();
                 break;
             case 4:
-                user.saveToFile();
-                user = null;
-                login();
+                unLoginUser();
                 break;
             case 5:
-                user.saveToFile();
-                send("");//TODO оно работает,но понять как оно работает о_0
-                this.close();
+                exitUser();
                 break;
-            case 6:
-                user.getLog().forEach(p -> {
+            case 6: //only for test
+                if (user.getLogTasks() == null) {
+                    send("Log is Empty");
+                } else user.getLogTasks().forEach(p -> {
                     send(p.toString());
                 });
             default:
                 send(View.printErrorIncorrectValue());
-                if (!s.isClosed()) firstMenu();
+                if (!socket.isClosed()) mainMenu();
         }
     }
+
 
     /**
      * метод для 1 и 2-го пункта главного меню. Выводит вевтви иерархии задач
      *
      * @param q - номер пункта 1 или 2
      */
-    private void menuOfItemOneOrTwo(int q) {
-        send(View.printMenuOfItemOneOrTwo());
+    private void brunchMenu(int q) {
+        send(View.printBrunchMenu());
         user.taskHierarchy.toStringFromSend().forEach(p -> {
             send(p);
         });
@@ -159,19 +169,19 @@ public class ClientThread extends Thread {
         int i = user.taskHierarchy.getTaskHierarchyMap().size();//i- количество деревьев. Надо взять из файла  //user.taskHierarchy.getTaskHierarchyMap().size()
         System.out.println(i);
         try {
-            a = Integer.parseInt(br.readLine());
+            intInput = Integer.parseInt(bufferedReader.readLine());
         } catch (Exception e) {
-            a = 1234;
+            intInput = 1234;
         }
         for (int k = 1; k <= i; k++) {
-            if (a == k) subMenuOfItemOneOrTwo(k, q);
+            if (intInput == k) taskModeMenu(k, q);
         }
-        if (a == 100) {
-            firstMenu();
+        if (intInput == 100) {
+            mainMenu();
             return;
         } else {
             send(View.printErrorIncorrectValue());
-            if (!s.isClosed()) menuOfItemOneOrTwo(q);
+            if (!socket.isClosed()) brunchMenu(q);
         }
     }
 
@@ -181,36 +191,36 @@ public class ClientThread extends Thread {
      * @param i - это ид дерева задач
      * @param q - значение пункта меню- 1 или 2
      */
-    private void subMenuOfItemOneOrTwo(int i, int q) {
-        send(View.printSubMenuOfItemOneOrTwo());
+    private void taskModeMenu(int i, int q) {
+        send(View.printTaskModelMenu());
         user.taskHierarchy.getTaskHierarchyMap().get(i).toStringFromSend().forEach(p -> {
             System.out.println(p);
             send(p);
         });
-        int t = user.taskHierarchy.getTaskHierarchyMap().get(i).getTaskBrunch().size();   //t- количество задач в деревею
+        int t = user.taskHierarchy.getTaskHierarchyMap().get(i).getTaskBrunchMap().size();   //t- количество задач в деревею
         System.out.println(t);
         try {
-            a = Integer.parseInt(br.readLine());
+            intInput = Integer.parseInt(bufferedReader.readLine());
         } catch (Exception e) {
-            a = 1234;
+            intInput = 1234;
         }
         for (int k = 1; k <= t; k++) {
-            if (a == k) {
+            if (intInput == k) {
                 if (q == 1) updateCurrentTask(i, k);
-                if (q == 2) updateNameOfTask();
+                if (q == 2) updateNameOfTask(i, k);
                 return;
             }
         }
-        if (a == 100) {
-            firstMenu();
+        if (intInput == 100) {
+            mainMenu();
             return;
         }
-        if (a == 1000) {
-            menuOfItemOneOrTwo(q);
+        if (intInput == 1000) {
+            brunchMenu(q);
             return;
         } else {
             send(View.printErrorIncorrectValue());
-            if (!s.isClosed()) subMenuOfItemOneOrTwo(i, q);
+            if (!socket.isClosed()) taskModeMenu(i, q);
         }
     }
 
@@ -223,57 +233,87 @@ public class ClientThread extends Thread {
 
     private void updateCurrentTask(int i, int k) {//TODO тут вообще должна быть логика обновления текущего дела,и запись его в бд.
         try {
-            TaskModel newTaskModel = user.taskHierarchy.getTaskHierarchyMap().get(i).getTaskBrunch().get(k).clone();
-            if (user.addToLog(newTaskModel)) send(View.printUpdateCurrentTask("You doing "+newTaskModel.getName()+"! yeeeeah!)"));
+            TaskModel newTaskModel = user.taskHierarchy.getTaskHierarchyMap().get(i).getTaskBrunchMap().get(k).clone();
+            if (user.addToLog(newTaskModel))
+                send(View.printUpdateCurrentTask("You doing " + newTaskModel.getName() + "! yeeeeah!)"));
             else send(View.printUpdateCurrentTask("Error"));
-            //firstMenu();
+            //mainMenu();
         } catch (CloneNotSupportedException e) {
             e.printStackTrace();
         }
         try {
-            a = Integer.parseInt(br.readLine());
+            intInput = Integer.parseInt(bufferedReader.readLine());
         } catch (Exception e) {
-            a = 1234;
+            intInput = 1234;
         }
-        if ((a == 0) || !(a == 0)) {
-            firstMenu();
+        if ((intInput == 0) || !(intInput == 0)) {
+            mainMenu();
         }
     }
 
 
-    private void updateNameOfTask() { //TODO логика по изменению имени задачи
+    private void updateNameOfTask(int i, int k) { //TODO логика по изменению имени задачи
         send(View.printUpdateNameOfTask());
         try {
-            a = Integer.parseInt(br.readLine());
+            String u = bufferedReader.readLine();
+            user.taskHierarchy.getTaskHierarchyMap().get(i).getTaskBrunchMap().get(k).setName(u);
         } catch (Exception e) {
-            a = 1234;
         }
-        if ((a == 0) || !(a == 0)) {
-            firstMenu();
+        send("you update name of task!");
+        try {
+            intInput = Integer.parseInt(bufferedReader.readLine());
+        } catch (Exception e) {
+            intInput = 123;
+        }
+        if ((intInput == 0) || !(intInput == 0)) {
+            mainMenu();
         }
     }
 
     private void viewStatistic() {
         send(View.printSubMenuStatistic());
         try {
-            a = Integer.parseInt(br.readLine());
+            intInput = Integer.parseInt(bufferedReader.readLine());
         } catch (Exception e) {
-            a = 1234;
+            intInput = 1234;
         }
-        switch (a) {
-            //  case 1:
-
-            //  break;
-            // case 2:
-
-            //    break;
+        Statistics st = new Statistics();
+        switch (intInput) {
+            case 1:
+                st.getStatisticOfUserAllTime(user).forEach(p -> send(p));
+                break;
+            case 2:
+                st.getStatisticOfUserBrunch(user).forEach(p -> send(p));
+                break;
             case 100:
-                firstMenu();
+                mainMenu();
                 break;
             default:
                 send(View.printErrorIncorrectValue());
                 viewStatistic();
         }
+    }
+
+
+    private void exitUser() {
+        try {
+            workWithXML.marshallerUser(user, user.getName());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        send("");
+        this.closeSocket();
+    }
+
+
+    private void unLoginUser() {
+        try {
+            workWithXML.marshallerUser(user, user.getName());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        user = null;
+        loginMenu();
     }
 
 
@@ -284,25 +324,25 @@ public class ClientThread extends Thread {
      */
     public synchronized void send(String line) {
         try {
-            if (line == null) bw.write((char[]) null);//без этого оно выдает NPE //TODO понять почему ошибка
+            if (line == null) bufferedWriter.write((char[]) null);
             else {
-                bw.write(line); // пишем строку
-                bw.write("\n"); // пишем перевод строки
-                bw.flush(); // отправляем
+                bufferedWriter.write(line); // пишем строку
+                bufferedWriter.write("\n"); // пишем перевод строки
+                bufferedWriter.flush(); // отправляем
             }
         } catch (IOException e) {
-            close(); //если глюк в момент отправки - закрываем данный сокет.
+            closeSocket(); //если глюк в момент отправки - закрываем данный сокет.
         }
     }
 
     /**
      * метод закрывает сокет и убирает его со списка активных сокетов
      */
-    public synchronized void close() {
-        Server.getListClient().remove(this); //убираем из списка
-        if (!s.isClosed()) {
+    public synchronized void closeSocket() {
+        Server.getListConnectedClient().remove(this); //убираем из списка
+        if (!socket.isClosed()) {
             try {
-                s.close(); // закрываем
+                socket.close(); // закрываем
             } catch (IOException ignored) {
             }
         }
@@ -317,7 +357,7 @@ public class ClientThread extends Thread {
     @Override
     protected void finalize() throws Throwable {
         super.finalize();
-        close();
+        closeSocket();
     }
 
 

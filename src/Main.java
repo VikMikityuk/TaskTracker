@@ -1,13 +1,19 @@
-import logic.DataLists;
 import model.User;
 import socket.Server;
 
 import java.io.IOException;
+import java.util.Scanner;
 
 
 public class Main {
-    public static void main(String[] args) throws IOException {
+    static Server svr;
+
+    public static void main(String[] args) throws IOException, CloneNotSupportedException {
         new User("snap");//for test
-        new Server(22222).run();
+        svr = new Server(22222);
+        svr.run();
+
+
     }
+
 }
