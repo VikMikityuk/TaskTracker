@@ -72,15 +72,15 @@ public class ClientThread extends Thread {
             send("Input Error..");
             strInput = null;
         }
-        String str = User.validationUser(strInput); // здесь проверка логина. Стрингу присваивается имя, которое проверили
+        String uaerName = User.validationUser(strInput); // здесь проверка логина. Стрингу присваивается имя, которое проверили
         // если такое есть, то это имя, если нет то null
-        if (str != null) {// если имя есть, то
+        if (uaerName != null) {// если имя есть, то
             try {
-                if (workWithXML.unmarshallingUser(str) == null) {
+                if (workWithXML.unmarshallingUser(uaerName) == null) {
                     send("Error");
                     loginMenu();
                 }
-                user = workWithXML.unmarshallingUser(str);
+                user = workWithXML.unmarshallingUser(uaerName);
                 //  System.out.println(user.taskHierarchy.toStringFromSend()); //for test
                 mainMenu();
             } catch (IOException e) {
@@ -96,18 +96,18 @@ public class ClientThread extends Thread {
     }
 
     private void createUser() {
-        String u = null;
+        String strInput = null;
         try {
-            u = bufferedReader.readLine();
+            strInput = bufferedReader.readLine();
         } catch (IOException e) {
             send("Input Error..");
         }
-        if ("".equals(u)) {
+        if ("".equals(strInput)) {
             send(View.printErrorIncorrectValue());//если пользователь ввел пустое значение, то ошибка
             if (!socket.isClosed()) createUser();
         } else {
             try {
-                user = new User(u);
+                user = new User(strInput);
                 mainMenu();
             } catch (CloneNotSupportedException e) {
                 send("Error");
@@ -231,7 +231,7 @@ public class ClientThread extends Thread {
      * @param k - номер задачи в иерархии
      */
 
-    private void updateCurrentTask(int i, int k) {//TODO тут вообще должна быть логика обновления текущего дела,и запись его в бд.
+    private void updateCurrentTask(int i, int k) {
         try {
             TaskModel newTaskModel = user.taskHierarchy.getTaskHierarchyMap().get(i).getTaskBrunchMap().get(k).clone();
             if (user.addToLog(newTaskModel))
@@ -252,7 +252,7 @@ public class ClientThread extends Thread {
     }
 
 
-    private void updateNameOfTask(int i, int k) { //TODO логика по изменению имени задачи
+    private void updateNameOfTask(int i, int k) {
         send(View.printUpdateNameOfTask());
         try {
             String u = bufferedReader.readLine();
